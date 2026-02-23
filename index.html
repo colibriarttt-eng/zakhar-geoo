@@ -1,0 +1,764 @@
+<div id="geo-lookup-widget">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+  #geo-lookup-widget {
+    --bg:         #03010a;
+    --surface:    #07040f;
+    --panel:      #0a0718;
+    --cyan:       #00ffe7;
+    --cyan-dim:   #00ffe720;
+    --cyan-mid:   #00ffe760;
+    --pink:       #ff2d78;
+    --pink-dim:   #ff2d7820;
+    --yellow:     #f5e642;
+    --white:      #e8f0ff;
+    --muted:      #3a3560;
+    --muted2:     #1a1630;
+    --grid:       rgba(0,255,231,0.04);
+    --f-display:  'Orbitron', sans-serif;
+    --f-mono:     'Share Tech Mono', monospace;
+  }
+
+  #geo-lookup-widget *, #geo-lookup-widget *::before, #geo-lookup-widget *::after {
+    box-sizing: border-box; margin: 0; padding: 0;
+  }
+
+  /* ── Root wrapper ── */
+  #geo-lookup-widget .glw-root {
+    background: var(--bg);
+    max-width: 600px;
+    margin: 0 auto;
+    font-family: var(--f-mono);
+    color: var(--white);
+    position: relative;
+    /* outer neon border */
+    border: 1px solid var(--cyan-mid);
+    box-shadow:
+      0 0 0 1px var(--pink-dim),
+      0 0 30px rgba(0,255,231,0.08),
+      inset 0 0 60px rgba(0,255,231,0.03);
+  }
+
+  /* ── Scanlines ── */
+  #geo-lookup-widget .glw-root::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent 0px, transparent 3px,
+      rgba(0,255,231,0.015) 3px, rgba(0,255,231,0.015) 4px
+    );
+    pointer-events: none; z-index: 20;
+  }
+
+  /* ── Grid bg ── */
+  #geo-lookup-widget .glw-root::after {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── Sweep line ── */
+  #geo-lookup-widget .glw-sweep {
+    position: absolute; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent 0%, var(--cyan) 50%, transparent 100%);
+    opacity: 0;
+    animation: glwSweep 5s ease-in-out infinite;
+    z-index: 21; pointer-events: none;
+  }
+
+  /* ── All content above overlays ── */
+  #geo-lookup-widget .glw-content { position: relative; z-index: 5; }
+
+  /* ══════════════════════════════════
+     HEADER
+  ══════════════════════════════════ */
+  #geo-lookup-widget .glw-header {
+    padding: 28px 32px 24px;
+    border-bottom: 1px solid var(--muted2);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* top corner brackets */
+  #geo-lookup-widget .glw-header::before {
+    content: '';
+    position: absolute; top: 0; left: 0;
+    width: 40px; height: 40px;
+    border-top: 2px solid var(--cyan);
+    border-left: 2px solid var(--cyan);
+  }
+  #geo-lookup-widget .glw-header::after {
+    content: '';
+    position: absolute; top: 0; right: 0;
+    width: 40px; height: 40px;
+    border-top: 2px solid var(--pink);
+    border-right: 2px solid var(--pink);
+  }
+
+  #geo-lookup-widget .glw-sys-id {
+    font-family: var(--f-mono);
+    font-size: 9px;
+    letter-spacing: .25em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 14px;
+    opacity: 0.7;
+  }
+  #geo-lookup-widget .glw-sys-id span { color: var(--pink); }
+
+  /* Title: two lines */
+  #geo-lookup-widget .glw-title-wrap { margin-bottom: 10px; }
+
+  #geo-lookup-widget .glw-title-line1 {
+    font-family: var(--f-display);
+    font-size: clamp(.85rem, 3vw, 1.1rem);
+    font-weight: 400;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    text-shadow: 0 0 20px var(--cyan-mid);
+    display: block;
+  }
+
+  #geo-lookup-widget .glw-title-line2 {
+    font-family: var(--f-display);
+    font-size: clamp(1.4rem, 5vw, 2.1rem);
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    display: block;
+    line-height: 1.1;
+    /* glitch gradient */
+    background: linear-gradient(135deg, var(--white) 30%, var(--pink) 70%, var(--cyan) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: glwTitleFlicker 6s ease-in-out infinite;
+  }
+
+  #geo-lookup-widget .glw-tagline {
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: .16em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  #geo-lookup-widget .glw-tagline b { color: var(--yellow); font-weight: normal; }
+
+  /* bottom corner brackets */
+  #geo-lookup-widget .glw-hdr-bot-l {
+    position: absolute; bottom: -1px; left: 0;
+    width: 60px; height: 2px;
+    background: linear-gradient(90deg, var(--cyan), transparent);
+  }
+  #geo-lookup-widget .glw-hdr-bot-r {
+    position: absolute; bottom: -1px; right: 0;
+    width: 60px; height: 2px;
+    background: linear-gradient(270deg, var(--pink), transparent);
+  }
+
+  /* ══════════════════════════════════
+     BODY
+  ══════════════════════════════════ */
+  #geo-lookup-widget .glw-body {
+    padding: 26px 32px 32px;
+  }
+
+  /* Input label */
+  #geo-lookup-widget .glw-input-label {
+    font-size: 9px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  #geo-lookup-widget .glw-input-label::before {
+    content: '>';
+    color: var(--pink);
+    font-size: 12px;
+  }
+  #geo-lookup-widget .glw-input-label::after {
+    content: '';
+    flex: 1; height: 1px;
+    background: linear-gradient(90deg, var(--muted2), transparent);
+  }
+
+  /* Input row */
+  #geo-lookup-widget .glw-field {
+    display: flex;
+    margin-bottom: 26px;
+    position: relative;
+  }
+
+  /* neon focus frame */
+  #geo-lookup-widget .glw-field-frame {
+    flex: 1;
+    position: relative;
+  }
+  #geo-lookup-widget .glw-field-frame::before {
+    content: '';
+    position: absolute; inset: 0;
+    border: 1px solid var(--muted);
+    pointer-events: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  #geo-lookup-widget .glw-field-frame:focus-within::before {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 1px var(--cyan-dim), 0 0 18px rgba(0,255,231,.12);
+  }
+
+  #geo-lookup-widget .glw-input {
+    width: 100%;
+    height: 52px;
+    background: var(--panel);
+    border: none;
+    padding: 0 18px;
+    font-family: var(--f-mono);
+    font-size: 15px;
+    color: var(--cyan);
+    outline: none;
+    caret-color: var(--pink);
+    letter-spacing: .06em;
+    -webkit-appearance: none;
+  }
+  #geo-lookup-widget .glw-input::placeholder { color: var(--muted); font-size: 12px; letter-spacing: .1em; }
+
+  #geo-lookup-widget .glw-btn {
+    height: 52px;
+    width: 110px;
+    background: transparent;
+    border: none;
+    border-left: 1px solid var(--muted);
+    font-family: var(--f-display);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    background: var(--panel);
+    transition: color .2s;
+    -webkit-appearance: none;
+    flex-shrink: 0;
+  }
+  /* btn neon fill on hover */
+  #geo-lookup-widget .glw-btn::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(0,255,231,.12), rgba(255,45,120,.08));
+    opacity: 0;
+    transition: opacity .25s;
+  }
+  #geo-lookup-widget .glw-btn::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -120%; width: 60%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0,255,231,.2), transparent);
+    transition: left .4s;
+  }
+  #geo-lookup-widget .glw-btn:hover { color: var(--white); border-left-color: var(--cyan); }
+  #geo-lookup-widget .glw-btn:hover::before { opacity: 1; }
+  #geo-lookup-widget .glw-btn:hover::after  { left: 130%; }
+  #geo-lookup-widget .glw-btn:active { color: var(--pink); }
+  #geo-lookup-widget .glw-btn:disabled {
+    color: var(--muted); border-left-color: var(--muted2); cursor: not-allowed;
+  }
+  #geo-lookup-widget .glw-btn:disabled::before,
+  #geo-lookup-widget .glw-btn:disabled::after { display: none; }
+  #geo-lookup-widget .glw-btn-inner { position: relative; z-index: 1; }
+
+  /* ── Divider ── */
+  #geo-lookup-widget .glw-divider {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 20px;
+  }
+  #geo-lookup-widget .glw-divider::before {
+    content: '';
+    flex: 1; height: 1px;
+    background: linear-gradient(90deg, var(--muted2), var(--muted));
+  }
+  #geo-lookup-widget .glw-divider::after {
+    content: '';
+    flex: 1; height: 1px;
+    background: linear-gradient(270deg, var(--muted2), var(--muted));
+  }
+  #geo-lookup-widget .glw-div-label {
+    font-size: 8px; letter-spacing: .25em;
+    color: var(--muted); text-transform: uppercase;
+  }
+
+  /* ── Result area ── */
+  #geo-lookup-widget .glw-result { min-height: 88px; }
+
+  /* Loading */
+  #geo-lookup-widget .glw-loading {
+    display: flex; align-items: center; gap: 14px;
+    font-size: 11px; color: var(--cyan);
+    letter-spacing: .14em; text-transform: uppercase;
+    animation: glwFadeIn .3s ease both;
+  }
+  #geo-lookup-widget .glw-load-bar {
+    width: 100px; height: 2px;
+    background: var(--muted2); overflow: hidden;
+    position: relative;
+  }
+  #geo-lookup-widget .glw-load-bar::after {
+    content: '';
+    position: absolute; left: -40%; width: 40%; height: 100%;
+    background: linear-gradient(90deg, transparent, var(--cyan), var(--pink));
+    animation: glwLoadSlide 1.2s ease-in-out infinite;
+  }
+
+  /* Result card */
+  #geo-lookup-widget .glw-card {
+    background: var(--panel);
+    border: 1px solid var(--muted2);
+    padding: 18px 20px 20px;
+    position: relative;
+    animation: glwReveal .35s cubic-bezier(.2,.8,.4,1) both;
+  }
+
+  /* bottom-right corner mark */
+  #geo-lookup-widget .glw-card::after {
+    content: '';
+    position: absolute; bottom: 0; right: 0;
+    width: 16px; height: 16px;
+    border-bottom: 2px solid currentColor;
+    border-right: 2px solid currentColor;
+  }
+
+  #geo-lookup-widget .glw-card.city {
+    border-color: rgba(0,255,231,.3);
+    box-shadow: inset 0 0 30px rgba(0,255,231,.04), 0 0 20px rgba(0,255,231,.06);
+  }
+  #geo-lookup-widget .glw-card.city::after { color: var(--cyan); }
+
+  #geo-lookup-widget .glw-card.country {
+    border-color: rgba(255,45,120,.3);
+    box-shadow: inset 0 0 30px rgba(255,45,120,.04), 0 0 20px rgba(255,45,120,.06);
+  }
+  #geo-lookup-widget .glw-card.country::after { color: var(--pink); }
+
+  #geo-lookup-widget .glw-card.err {
+    border-color: rgba(245,230,66,.2);
+    box-shadow: inset 0 0 20px rgba(245,230,66,.03);
+  }
+  #geo-lookup-widget .glw-card.err::after { color: var(--yellow); }
+
+  #geo-lookup-widget .glw-card-sys {
+    font-size: 8.5px; letter-spacing: .2em;
+    text-transform: uppercase; margin-bottom: 10px;
+  }
+  #geo-lookup-widget .glw-card.city    .glw-card-sys { color: var(--cyan); }
+  #geo-lookup-widget .glw-card.country .glw-card-sys { color: var(--pink); }
+  #geo-lookup-widget .glw-card.err     .glw-card-sys { color: var(--yellow); }
+
+  #geo-lookup-widget .glw-query-name {
+    font-family: var(--f-display);
+    font-size: clamp(1.2rem, 4vw, 1.7rem);
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--white);
+    line-height: 1.1;
+    margin-bottom: 12px;
+    text-shadow: 0 0 20px rgba(255,255,255,.15);
+  }
+
+  #geo-lookup-widget .glw-rows { display: flex; flex-direction: column; gap: 8px; }
+
+  #geo-lookup-widget .glw-answer-row {
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  #geo-lookup-widget .glw-answer-key {
+    font-size: 9px; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--muted);
+    white-space: nowrap; min-width: 90px;
+  }
+  #geo-lookup-widget .glw-answer-val {
+    font-family: var(--f-mono);
+    font-size: 13px; letter-spacing: .06em;
+    color: var(--white);
+  }
+  #geo-lookup-widget .glw-answer-val--accent {
+    font-size: 17px; letter-spacing: .08em;
+  }
+  #geo-lookup-widget .glw-card.city    .glw-answer-val--accent { color: var(--cyan); text-shadow: 0 0 12px var(--cyan-mid); }
+  #geo-lookup-widget .glw-card.country .glw-answer-val--accent { color: var(--pink); text-shadow: 0 0 12px rgba(255,45,120,.5); }
+
+  /* ── History ── */
+  #geo-lookup-widget .glw-history {
+    margin-top: 20px;
+    border-top: 1px solid var(--muted2);
+    padding-top: 16px;
+  }
+  #geo-lookup-widget .glw-hist-label {
+    font-size: 8px; letter-spacing: .22em;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 10px;
+  }
+  #geo-lookup-widget .glw-hist-rows { display: flex; flex-direction: column; gap: 3px; }
+  #geo-lookup-widget .glw-hist-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11.5px; color: var(--muted);
+    padding: 7px 12px; cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: all .15s; background: transparent;
+    animation: glwReveal .2s ease both;
+  }
+  #geo-lookup-widget .glw-hist-row:hover {
+    background: var(--panel);
+    border-left-color: var(--cyan);
+    color: var(--cyan);
+  }
+  #geo-lookup-widget .glw-hist-q { font-weight: bold; letter-spacing: .06em; text-transform: uppercase; }
+  #geo-lookup-widget .glw-hist-a { text-align: right; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ══════════════════════════════════
+     STATUS BAR
+  ══════════════════════════════════ */
+  #geo-lookup-widget .glw-statusbar {
+    background: var(--surface);
+    border-top: 1px solid var(--muted2);
+    padding: 8px 32px;
+    display: flex; justify-content: space-between; align-items: center;
+    position: relative;
+  }
+  #geo-lookup-widget .glw-statusbar::before {
+    content: '';
+    position: absolute; top: 0; left: 0;
+    width: 40px; height: 1px;
+    background: var(--cyan);
+  }
+  #geo-lookup-widget .glw-statusbar::after {
+    content: '';
+    position: absolute; top: 0; right: 0;
+    width: 40px; height: 1px;
+    background: var(--pink);
+  }
+  #geo-lookup-widget .glw-status-l,
+  #geo-lookup-widget .glw-status-r {
+    font-size: 8.5px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  #geo-lookup-widget .glw-status-dot {
+    display: inline-block;
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--cyan);
+    margin-right: 7px;
+    box-shadow: 0 0 6px var(--cyan);
+    animation: glwBlink 2.4s ease-in-out infinite;
+    vertical-align: middle;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 480px) {
+    #geo-lookup-widget .glw-header,
+    #geo-lookup-widget .glw-body { padding-left: 18px; padding-right: 18px; }
+    #geo-lookup-widget .glw-statusbar { padding-left: 18px; padding-right: 18px; }
+    #geo-lookup-widget .glw-field { flex-direction: column; }
+    #geo-lookup-widget .glw-btn { height: 44px; width: 100%; border-left: none; border-top: 1px solid var(--muted); }
+    #geo-lookup-widget .glw-title-line2 { font-size: 1.3rem; }
+    #geo-lookup-widget .glw-answer-key { min-width: 70px; }
+  }
+
+  /* ── Keyframes ── */
+  @keyframes glwSweep {
+    0%   { top: -1px; opacity: 0; }
+    5%   { opacity: .7; }
+    95%  { opacity: .7; }
+    100% { top: 100%; opacity: 0; }
+  }
+  @keyframes glwLoadSlide {
+    0%   { left: -40%; }
+    100% { left: 140%; }
+  }
+  @keyframes glwReveal {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes glwFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes glwBlink {
+    0%,100% { opacity: 1; }
+    50%     { opacity: 0.15; }
+  }
+  @keyframes glwTitleFlicker {
+    0%,97%,100% { filter: brightness(1); }
+    98%          { filter: brightness(1.4) drop-shadow(0 0 8px rgba(0,255,231,.6)); }
+    99%          { filter: brightness(.8); }
+  }
+</style>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+
+<div class="glw-root">
+  <div class="glw-sweep"></div>
+  <div class="glw-content">
+
+    <!-- HEADER -->
+    <div class="glw-header">
+      <div class="glw-sys-id">ZDS-7749 // <span>NET-UPLINK: ACTIVE</span> // BUILD 3.1.0</div>
+      <div class="glw-title-wrap">
+        <span class="glw-title-line1">Zakhar Discovery System</span>
+        <span class="glw-title-line2">Цифровая планета</span>
+      </div>
+      <div class="glw-tagline">GEO-INTELLIGENCE ENGINE // <b>GLOBAL DATABASE ONLINE</b></div>
+      <div class="glw-hdr-bot-l"></div>
+      <div class="glw-hdr-bot-r"></div>
+    </div>
+
+    <!-- BODY -->
+    <div class="glw-body">
+
+      <div class="glw-input-label">Инициировать запрос</div>
+      <div class="glw-field">
+        <div class="glw-field-frame">
+          <input id="glwInput" class="glw-input"
+                 type="text"
+                 placeholder="_ ГОРОД ИЛИ СТРАНА..."
+                 autocomplete="off" spellcheck="false" />
+        </div>
+        <button id="glwBtn" class="glw-btn" onclick="glwSearch()">
+          <span class="glw-btn-inner">SCAN</span>
+        </button>
+      </div>
+
+      <div class="glw-divider">
+        <span class="glw-div-label">DATA OUTPUT</span>
+      </div>
+
+      <div class="glw-result" id="glwResult">
+        <div class="glw-loading" style="opacity:.25">
+          <div class="glw-load-bar"></div>
+          <span>Ожидание ввода</span>
+        </div>
+      </div>
+
+      <div id="glwHistory"></div>
+
+    </div>
+
+    <!-- STATUS BAR -->
+    <div class="glw-statusbar">
+      <div class="glw-status-l"><span class="glw-status-dot"></span>System Online</div>
+      <div class="glw-status-r">REST Countries + OSM Nominatim</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var RU_MAP = {
+    'россия':'russia','сша':'united states','великобритания':'united kingdom',
+    'германия':'germany','франция':'france','италия':'italy','испания':'spain',
+    'китай':'china','япония':'japan','бразилия':'brazil','канада':'canada',
+    'австралия':'australia','индия':'india','мексика':'mexico','аргентина':'argentina',
+    'южная корея':'south korea','нидерланды':'netherlands','польша':'poland',
+    'украина':'ukraine','беларусь':'belarus','казахстан':'kazakhstan',
+    'турция':'turkey','египет':'egypt','израиль':'israel','швеция':'sweden',
+    'норвегия':'norway','финляндия':'finland','дания':'denmark',
+    'португалия':'portugal','австрия':'austria','швейцария':'switzerland',
+    'бельгия':'belgium','чехия':'czechia','румыния':'romania','венгрия':'hungary',
+    'греция':'greece','таиланд':'thailand','индонезия':'indonesia',
+    'вьетнам':'vietnam','малайзия':'malaysia','пакистан':'pakistan',
+    'иран':'iran','ирак':'iraq','саудовская аравия':'saudi arabia',
+    'южная африка':'south africa','нигерия':'nigeria','марокко':'morocco',
+    'алжир':'algeria','узбекистан':'uzbekistan','азербайджан':'azerbaijan',
+    'грузия':'georgia','армения':'armenia','сербия':'serbia','хорватия':'croatia',
+    'болгария':'bulgaria','литва':'lithuania','латвия':'latvia','эстония':'estonia',
+    'ирландия':'ireland','новая зеландия':'new zealand','сингапур':'singapore',
+    'катар':'qatar','оаэ':'united arab emirates',
+    'объединённые арабские эмираты':'united arab emirates',
+    'объединенные арабские эмираты':'united arab emirates',
+    'филиппины':'philippines','бангладеш':'bangladesh','куба':'cuba',
+    'колумбия':'colombia','чили':'chile','перу':'peru','венесуэла':'venezuela',
+    'тунис':'tunisia','судан':'sudan','эфиопия':'ethiopia','кения':'kenya',
+    'танзания':'tanzania','ангола':'angola','гана':'ghana',
+    'монголия':'mongolia','афганистан':'afghanistan','непал':'nepal',
+    'мьянма':'myanmar','камбоджа':'cambodia','таджикистан':'tajikistan',
+    'молдова':'moldova','исландия':'iceland','люксембург':'luxembourg',
+    'словакия':'slovakia','словения':'slovenia','черногория':'montenegro',
+    'северная македония':'north macedonia',
+    'босния и герцеговина':'bosnia and herzegovina',
+    'эквадор':'ecuador','боливия':'bolivia','парагвай':'paraguay',
+    'уругвай':'uruguay','ямайка':'jamaica','панама':'panama','ливия':'libya',
+    'сомали':'somalia','зимбабве':'zimbabwe','мозамбик':'mozambique',
+    'замбия':'zambia','мадагаскар':'madagascar','камерун':'cameroon',
+  };
+
+  var HISTORY = [];
+
+  function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function glwSet(v) {
+    document.getElementById('glwInput').value = v;
+    document.getElementById('glwInput').focus();
+  }
+  window.glwSet = glwSet;
+
+  function showLoading() {
+    document.getElementById('glwResult').innerHTML =
+      '<div class="glw-loading">' +
+        '<div class="glw-load-bar"></div>' +
+        '<span>Сканирование базы данных...</span>' +
+      '</div>';
+  }
+
+  function showResult(type, query, rows) {
+    var sysLabels = {
+      city:    'OBJECT_TYPE: CITY // STATUS: FOUND',
+      country: 'OBJECT_TYPE: COUNTRY // STATUS: FOUND',
+      err:     'STATUS: NO_MATCH // QUERY_FAILED'
+    };
+    var rowsHtml = '';
+    if (Array.isArray(rows)) {
+      rowsHtml = '<div class="glw-rows">' + rows.map(function(r) {
+        return '<div class="glw-answer-row">' +
+          '<span class="glw-answer-key">' + esc(r.key) + '</span>' +
+          '<span class="glw-answer-val' + (r.accent ? ' glw-answer-val--accent' : '') + '">' + esc(r.value) + '</span>' +
+        '</div>';
+      }).join('') + '</div>';
+    } else if (rows) {
+      rowsHtml = '<div class="glw-rows"><div class="glw-answer-row"><span class="glw-answer-val" style="color:#f5e642">' + esc(rows) + '</span></div></div>';
+    }
+    document.getElementById('glwResult').innerHTML =
+      '<div class="glw-card ' + type + '">' +
+        '<div class="glw-card-sys">' + sysLabels[type] + '</div>' +
+        '<div class="glw-query-name">' + esc(query) + '</div>' +
+        rowsHtml +
+      '</div>';
+  }
+
+  function addHistory(query, answer) {
+    HISTORY.unshift({ q: query, a: answer });
+    if (HISTORY.length > 5) HISTORY.pop();
+    renderHistory();
+  }
+
+  function renderHistory() {
+    var el = document.getElementById('glwHistory');
+    if (!HISTORY.length) { el.innerHTML = ''; return; }
+    var rows = HISTORY.map(function(h, i) {
+      return '<div class="glw-hist-row" style="animation-delay:' + (i*0.04) + 's" onclick="glwSet(\'' + esc(h.q) + '\')">' +
+               '<span class="glw-hist-q">' + esc(h.q) + '</span>' +
+               '<span class="glw-hist-a">' + esc(h.a) + '</span>' +
+             '</div>';
+    }).join('');
+    el.innerHTML =
+      '<div class="glw-history">' +
+        '<div class="glw-hist-label">// LOG: Recent queries</div>' +
+        '<div class="glw-hist-rows">' + rows + '</div>' +
+      '</div>';
+  }
+
+  async function fetchCountry(name) {
+    var key = name.trim().toLowerCase();
+    var enName = RU_MAP[key] || key;
+    try {
+      var res = await fetch('https://restcountries.com/v3.1/name/' +
+        encodeURIComponent(enName) + '?fields=name,capital');
+      if (!res.ok) return null;
+      var data = await res.json();
+      if (!Array.isArray(data) || !data.length) return null;
+      var capital = data[0].capital && data[0].capital[0];
+      return capital ? { capital: capital } : null;
+    } catch(e) { return null; }
+  }
+
+  async function fetchCity(name) {
+    try {
+      var res = await fetch(
+        'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(name) +
+        '&format=json&addressdetails=1&limit=1&accept-language=ru',
+        { headers: { 'User-Agent': 'ZakharDiscoverySystem/3.1' } }
+      );
+      if (!res.ok) return null;
+      var data = await res.json();
+      if (!data.length) return null;
+      var addr = data[0].address || {};
+      var country = addr.country || null;
+      if (!country) return null;
+      var state    = addr.state || addr.region || addr.province || null;
+      var county   = addr.county || addr.state_district || null;
+      var district = addr.district || addr.suburb || null;
+      var placeType = data[0].type || data[0].class || '';
+      var isCity = ['city','town'].indexOf(placeType) !== -1;
+      var showCounty   = county   && !isCity && county.toLowerCase()   !== name.trim().toLowerCase();
+      var showDistrict = district && district.toLowerCase() !== name.trim().toLowerCase();
+      return {
+        country:  country,
+        state:    state,
+        county:   showCounty   ? county   : null,
+        district: showDistrict ? district : null
+      };
+    } catch(e) { return null; }
+  }
+
+  async function glwSearch() {
+    var input = document.getElementById('glwInput');
+    var btn   = document.getElementById('glwBtn');
+    var query = input.value.trim();
+
+    if (!query) {
+      showResult('err', 'NULL INPUT', 'Введите название города или страны');
+      return;
+    }
+
+    btn.disabled = true;
+    showLoading();
+
+    try {
+      var countryData = await fetchCountry(query);
+      if (countryData) {
+        showResult('country', query, [{ key: 'Столица', value: countryData.capital, accent: true }]);
+        addHistory(query, countryData.capital);
+        return;
+      }
+
+      var cityData = await fetchCity(query);
+      if (cityData) {
+        var rows = [];
+        rows.push({ key: 'Страна',        value: cityData.country, accent: true });
+        if (cityData.state)    rows.push({ key: 'Регион / Штат',  value: cityData.state });
+        if (cityData.county)   rows.push({ key: 'Район',          value: cityData.county });
+        if (cityData.district) rows.push({ key: 'Микрорайон',     value: cityData.district });
+        showResult('city', query, rows);
+        var histAns = cityData.country + (cityData.state ? ', ' + cityData.state : '');
+        addHistory(query, histAns);
+        return;
+      }
+
+      showResult('err', query, 'Объект не найден. Проверьте написание');
+    } catch (e) {
+      showResult('err', 'SYSTEM ERROR', e.message || 'Нет соединения с сервером');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  window.glwSearch = glwSearch;
+
+  document.getElementById('glwInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') glwSearch();
+  });
+})();
+</script>
+</div>
